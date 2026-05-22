@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Admin Panel</title>
+
+<link rel="stylesheet"
+href="{{ url_for('static', filename='css/style.css') }}">
+
+</head>
+
+<body>
+
+<div class="admin-panel">
+
+<h1>Admin Dashboard</h1>
+
+<div class="admin-card">
+    Total Users: {{ users|length }}
+</div>
+
+<div class="admin-card">
+    Total Messages: {{ messages|length }}
+</div>
+
+<div class="admin-card">
+    Total Friendships: {{ friendships|length }}
+</div>
+
+<h2>Users</h2>
+
+{% for user in users %}
+
+<div class="admin-user">
+
+    <span>{{ user.username }}</span>
+
+</div>
+
+{% endfor %}
+
+</div>
+
+</body>
+</html>
