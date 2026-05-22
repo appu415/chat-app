@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Dashboard</title>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+    <style>
+
+        body{
+            margin:0;
+            background:#0f172a;
+            font-family:Arial;
+            color:white;
+            display:flex;
+            height:100vh;
+        }
+
+        .sidebar{
+            width:300px;
+            background:#111827;
+            padding:20px;
+            overflow:auto;
+        }
+
+        .main{
+            flex:1;
+            display:flex;
+            flex-direction:column;
+        }
+
+        .topbar{
+            background:#1e293b;
+            padding:15px;
+            font-size:22px;
+            font-weight:bold;
+        }
+
+        .users button,
+        .friends button{
+            width:100%;
+            padding:12px;
+            margin-top:10px;
+            border:none;
+            border-radius:12px;
+            background:#2563eb;
+            color:white;
+            cursor:pointer;
+        }
+
+        .chat-box{
+            flex:1;
+            overflow:auto;
+            padding:20px;
+            display:flex;
+            flex-direction:column;
+            scroll-behavior:smooth;
+        }
+
+        .message{
+            max-width:60%;
+            padding:12px;
+            margin:10px;
+            border-radius:16px;
+            animation:fadeIn 0.2s ease;
+        }
+
+        .mine{
+            background:#2563eb;
+            align-self:flex-end;
+            border-bottom-right-radius:4px;
+        }
+
+        .other{
+            background:#374151;
+            align-self:flex-start;
+            border-bottom-left-radius:4px;
+        }
+
+        .sender-name{
+            font-size:12px;
+            font-weight:bold;
+            margin-bottom:5px;
+        }
+
+        .mine-name{
+            color:#bfdbfe;
+            text-align:right;
+        }
+
+        .other-name{
+            color:#d1d5db;
+            text-align:left;
+        }
+
+        .msg-text{
+            font-size:15px;
+            line-height:1.5;
+            word-wrap:break-word;
+        }
+
+        .chat-sticker{
+            width:140px;
+            margin-top:5px;
+            border-radius:12px;
+        }
+
+        .msg-time{
+            font-size:11px;
+            opacity:0.7;
+            margin-top:5px;
+            text-align:right;
+        }
+
+        .input-area{
+            background:#1e293b;
+            padding:15px;
+            display:flex;
+            gap:10px;
+        }
+
+        .input-area input{
+            flex:1;
+            padding:12px;
+            border:none;
+            border-radius:12px;
+        }
+
+        .input-area button{
+            padding:12px 20px;
+            border:none;
+            border-radius:12px;
+            background:#2563eb;
+            color:white;
+            cursor:pointer;
+        }
+
+        .stickers{
+            display:flex;
+            gap:10px;
+            padding:10px;
+            background:#111827;
+        }
+
+        .sticker-btn{
+            width:60px;
+            height:60px;
+            cursor:pointer;
+            border-radius:12px;
+        }
+
+        @keyframes fadeIn{
+
+            from{
+                opacity:0;
+                transform:translateY(10px);
+            }
+
+            to{
+                opacity:1;
+                transform:translateY(0px);
+            }
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="sidebar">
+
+    <h2>Friends</h2>
+
+    <div class="friends">
+
+        {% for friend in friends %}
+
+            <button onclick="openChat({{friend.id}}, '{{friend.username}}')">
+
+                {{friend.username}}
+
+            </button>
+
+        {% endfor %}
+
+    </div>
+
+    <hr>
+
+    <h2>Requests</h2>
+
+    {% for req in requests %}
+
+        <div>
+
+            User {{req.sender_id}}
+
+            <a href="/accept/{{req.id}}">
+                Accept
+            </a>
+
+        </div>
+
+    {% endfor %}
+
+    <hr>
+
+    <h2>Users</h2>
+
+    <div class="users">
+
+        {% for user in users %}
+
+            <a href="/send_request/{{user.id}}">
+
+                <button>
+
+                    Add {{user.username}}
+
+                </button>
+
+            </a>
+
+        {% endfor %}
+
+    </div>
+
+    <br>
+
+    <a href="/logout">
+
+        <button>
+            Logout
+        </button>
+
+    </a>
+
+</div>
+
+<div class="main">
+
+    <div class="topbar" id="chatTitle">
+
+        Select a friend
+
+    </div>
+
+    <div class="chat-box" id="chatBox"></div>
+
+    <div class="stickers">
+
+        <img
+            src="/static/stickers/happy.png"
+            class="sticker-btn"
+            onclick="sendSticker('happy.png')"
+        >
+
+        <img
+            src="/static/stickers/love.png"
+            class="sticker-btn"
+            onclick="sendSticker('love.png')"
+        >
+
+        <img
+            src="/static/stickers/laugh.png"
+            class="sticker-btn"
+            onclick="sendSticker('laugh.png')"
+        >
+
+    </div>
+
+    <div class="input-area">
+
+        <input
+            type="text"
+            id="messageInput"
+            placeholder="Type message..."
+        >
+
+        <button onclick="sendMessage()">
+
+            Send
+
+        </button>
+
+    </div>
+
+</div>
+
+<script>
+
+    const socket = io()
+
+    let currentFriendId = null
+
+    const chatBox =
+        document.getElementById('chatBox')
+
+    const messageInput =
+        document.getElementById('messageInput')
+
+    // =====================================================
+    // OPEN CHAT
+    // =====================================================
+
+    function openChat(friendId, username){
+
+        currentFriendId = friendId
+
+        document.getElementById(
+            'chatTitle'
+        ).innerText = username
+
+        chatBox.innerHTML = ''
+
+        socket.emit('join_chat', {
+
+            friend_id: friendId
+        })
+
+        fetch(`/messages/${friendId}`)
+        .then(res => res.json())
+        .then(messages => {
+
+            messages.forEach(message => {
+
+                renderMessage(message)
+            })
+
+            scrollBottom()
+        })
+    }
+
+    // =====================================================
+    // ENTER KEY SEND
+    // =====================================================
+
+    messageInput.addEventListener(
+        'keypress',
+        function(e){
+
+            if(e.key === 'Enter'){
+
+                e.preventDefault()
+
+                sendMessage()
+            }
+        }
+    )
+
+    // =====================================================
+    // SEND TEXT
+    // =====================================================
+
+    function sendMessage(){
+
+        if(!currentFriendId) return
+
+        const text = messageInput.value.trim()
+
+        if(text === '') return
+
+        socket.emit('send_message', {
+
+            friend_id: currentFriendId,
+
+            text: text
+        })
+
+        messageInput.value = ''
+
+        messageInput.focus()
+    }
+
+    // =====================================================
+    // SEND STICKER
+    // =====================================================
+
+    function sendSticker(stickerName){
+
+        if(!currentFriendId) return
+
+        socket.emit('send_message', {
+
+            friend_id: currentFriendId,
+
+            sticker: stickerName
+        })
+    }
+
+    // =====================================================
+    // RECEIVE MESSAGE
+    // =====================================================
+
+    socket.on('receive_message', function(message){
+
+        if(
+            message.sender_id == currentFriendId ||
+            message.receiver_id == currentFriendId
+        ){
+
+            renderMessage(message)
+
+            scrollBottom()
+        }
+    })
+
+    // =====================================================
+    // RENDER MESSAGE
+    // =====================================================
+
+    function renderMessage(message){
+
+        const msgDiv =
+            document.createElement('div')
+
+        msgDiv.classList.add('message')
+
+        const isMine =
+            Number(message.sender_id)
+            ===
+            Number({{ current_user.id }})
+
+        if(isMine){
+
+            msgDiv.classList.add('mine')
+
+        }else{
+
+            msgDiv.classList.add('other')
+        }
+
+        let content = ''
+
+        if(isMine){
+
+            content += `
+                <div class="sender-name mine-name">
+                    You
+                </div>
+            `
+
+        }else{
+
+            content += `
+                <div class="sender-name other-name">
+                    Friend
+                </div>
+            `
+        }
+
+        if(message.text){
+
+            content += `
+                <div class="msg-text">
+                    ${escapeHtml(message.text)}
+                </div>
+            `
+        }
+
+        if(message.sticker){
+
+            content += `
+                <img
+                    src="/static/stickers/${message.sticker}"
+                    class="chat-sticker"
+                >
+            `
+        }
+
+        content += `
+            <div class="msg-time">
+                ${message.time}
+            </div>
+        `
+
+        msgDiv.innerHTML = content
+
+        chatBox.appendChild(msgDiv)
+    }
+
+    // =====================================================
+    // AUTO SCROLL
+    // =====================================================
+
+    function scrollBottom(){
+
+        chatBox.scrollTop =
+            chatBox.scrollHeight
+    }
+
+    // =====================================================
+    // SAFE HTML
+    // =====================================================
+
+    function escapeHtml(text){
+
+        const div =
+            document.createElement('div')
+
+        div.innerText = text
+
+        return div.innerHTML
+    }
+
+</script>
+
+</body>
+</html>
